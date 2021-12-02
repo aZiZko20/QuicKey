@@ -9,14 +9,16 @@
                       
 
 */
+
+
 //try making last row without 0x00 or add 0x00 to the rows below 14 columns and check results
 int keyboard[6][14] = {
-                      {0xB1, 0x31, 0x32, 0x33, 0x34, 0x35, 0x36, 0x37, 0x38, 0x39, 0x30, 0x2D, 0x2B, 0xB2},
+                      {0xB1, 0x31, 0x32, 0x33, 0x34, 0x35, 0x36, 0x37, 0x38, 0x39, 0x30, 0x2D, 0x3D, 0xB2},
                       {0xB3, 0x71, 0x77, 0x65, 0x72, 0x74, 0x79, 0x75, 0x69, 0x6F, 0x70, 0x5B, 0x5D, 0x5C},
-                      {0xC1, 0x61, 0x73, 0x64, 0x66, 0x67, 0x68, 0x6A, 0x6B, 0x6C, 0x3B, 0x22, 0x00, 0xB0}, //13 columns here
-                      {0x81, 0x7A, 0x78, 0x63, 0x76, 0x62, 0x6E, 0x6D, 0x2C, 0x2E, 0x2F, 0x85            }, //12 columns here
-                      {0x80, 0x83, 0x82, 0x00, 0x00,    0x20     , 0x00, 0x00, 0x00, 0x00, 0x86, 0x87, 0x84, 0xD8                }, //FN turned to LEFT arrow button and Menu turned to UP arrow. 8 columns here
-                      {0x00, 0x00, 0x7B, 0x28, 0x3C, 0x3E, 0x29, 0x7D}
+                      {0xC1, 0x61, 0x73, 0x64, 0x66, 0x67, 0x68, 0x6A, 0x6B, 0x6C, 0x3B, 0x27, 0x00, 0xB0}, //13 columns here
+                      {0x85, 0x7A, 0x78, 0x63, 0x76, 0x62, 0x6E, 0x6D, 0x2C, 0x2E, 0x2F, 0x00, 0x00, 0x81}, //12 columns here
+                      {0x80, 0x83, 0x82, 0x00, 0x00,   0x20   , 0x00, 0x00, 0x00, 0x00, 0x86, 0x87, 0xD8, 0x84}, //FN turned to LEFT arrow button and Menu turned to UP arrow. 8 columns here
+                      {0x00, 0x00, 0x7B, 0x28, 0x3C, 0x3E, 0x29, 0x7D, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00}
                       };
                       
 
@@ -54,10 +56,12 @@ void setup() {
   pinMode(15, INPUT_PULLUP); //column 1 PB1
   pinMode(16, INPUT_PULLUP); //column 2 PB2
   pinMode(17, INPUT_PULLUP); //column 0 PB0
-  pinMode(30, INPUT_PULLUP); //column 8 PD5
+  pinMode(30, INPUT); //column 8 PD5
 }
 
+//int key=0x00;
 //scanning each row and column for a pressed key.
+//Try making another scan loop that goes in the opposite order.
 int keyboard_scan(){
   //setting all the rows to 1
   digitalWrite(18, HIGH);
@@ -66,7 +70,7 @@ int keyboard_scan(){
   digitalWrite(21, HIGH);
   digitalWrite(22, HIGH);
   digitalWrite(23, HIGH);
-  
+  digitalWrite(30, HIGH); //enable pull-up resistor in column 8
   int i = 0;
   int j = 0;
   for(i = 0; i < 6; i++){
@@ -81,20 +85,57 @@ int keyboard_scan(){
       }
     }
     digitalWrite(port_rows[i], HIGH); //set the row back to 1 and move on to the next row
+    digitalWrite(30, LOW); //disable pull-up resistor on column 8 to prevent ghosting
+
   }
   return 0x00; //If nothing is found, return 0xFFF
 }
 
+//reverse scans the key matrix
+int rev_keyboard_scan(){
+  //setting all the rows to 1
+  digitalWrite(18, HIGH);
+  digitalWrite(19, HIGH);
+  digitalWrite(20, HIGH);
+  digitalWrite(21, HIGH);
+  digitalWrite(22, HIGH);
+  digitalWrite(23, HIGH);
+  digitalWrite(30, HIGH); //enable pull-up resistor in column 8
+  int i = 0;
+  int j = 0;
+  for(i = 6; i < 0; i--){
+    //setting a row to 0
+    digitalWrite(port_rows[i], LOW);
+        delay(5);
+        
+    //scan through the columns to see which button is pressed.
+    for(j = 14; j < 0; j--){
+      if( (digitalRead(port_cols[j]) == 0 )){
+        return keyboard[i][j];
+      }
+    }
+    digitalWrite(port_rows[i], HIGH); //set the row back to 1 and move on to the next row
+    digitalWrite(30, LOW); //disable pull-up resistor on column 8 to prevent ghosting
 
+  }
+  return 0x00; //If nothing is found, return 0xFFF
+}
+int lastKey;
 void loop() {
-  
   int key = keyboard_scan();
-  if(key != 0x00) {
+  //int rev = rev_keyboard_scan();
+  if(key != 0x00){
     
-    Keyboard.press(key); //sends pressed character
-    delay(50); //debounce
-    //Keyboard.releaseAll();
-    int lastKey = key;
+    Keyboard.press(key); //sends pressed character 
+    delay(25); //debounce
+    
+    //Keyboard.releaseAll();   
+    if(lastKey != key){
+      Keyboard.release(lastKey); //releases the previously pressed character
+      Keyboard.press(key); //send actual pressed character 
+      delay(25); //debounce
+      }
+    lastKey = key;
   }
   else
     Keyboard.releaseAll();
@@ -102,40 +143,32 @@ void loop() {
 
 
 //TEST DEBOUNCE CODE ----------------------------------------
-/*
-  // read the state of the switch into a local variable:
-  int reading = keyboard_scan();
-  //reading = 0x00 if nothing pressed
-  //reading > 0x00 if something pressed
-  
 
-  // check to see if you just pressed the button
-  // (i.e. the input went from LOW to HIGH), and you've waited long enough
-  // since the last press to ignore any noise:
-
-  // If the switch changed, due to noise or pressing:
-  if (reading != lastButtonState) {
-    // reset the debouncing timer
-    lastDebounceTime = millis();
-  }
-
-  if ((millis() - lastDebounceTime) > debounceDelay) {
-    // whatever the reading is at, it's been there for longer than the debounce
-    // delay, so take it as the actual current state:
-
-    // if the button state has changed:
-    if (reading != buttonState) {
-      buttonState = reading;
-
-      Keyboard.press(buttonState);
-     }
-
-     else {
-      Keyboard.releaseAll();
-    }
-  }
-
-  // save the reading. Next time through the loop, it'll be the lastButtonState:
-  lastButtonState = reading;
-}
-*/
+   //read the state of the switch into a local variable:
+//  int reading = keyboard_scan();
+//  //reading = 0x00 if nothing pressed
+//  //reading > 0x00 if something pressed
+//  
+//  // check to see if you just pressed the button
+//  // (i.e. the input went from LOW to HIGH), and you've waited long enough
+//  // since the last press to ignore any noise:
+//  // If the switch changed, due to noise or pressing:
+//  if (reading != lastButtonState) {
+//    // reset the debouncing timer
+//    lastDebounceTime = millis();
+//  }
+//  if ((millis() - lastDebounceTime) > debounceDelay) {
+//    // whatever the reading is at, it's been there for longer than the debounce fffff,,,,,,,,,,,,,,,,,,,,8ikmm,,,kk
+//    // delay, so take it as the actual current state:
+//    // if the button state has changed:
+//    if (reading != buttonState || reading != 0x0) {
+//      buttonState = reading;
+//      Keyboard.press(buttonState);
+//     }
+//     else {
+//      Keyboard.releaseAll();
+//    }
+//  }
+//  // save the reading. Next time through the loop, it'll be the lastButtonState:
+//  lastButtonState = reading;
+//}
