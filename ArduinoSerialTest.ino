@@ -74,10 +74,11 @@ int keyboard_scan(){
     //scan through the columns to see which button is pressed.
     for(j = 0; j < 14; j++){
       if( (digitalRead(port_cols[j]) == 0 )){
-        Serial.print(port_rows[i]);
+        Serial.print(i);
         Serial.print(", ");
-        Serial.print(port_cols[j]);
+        Serial.print(j);
         Serial.print("\n");
+        delay(25);
         return keyboard[i][j];
       }
     }
